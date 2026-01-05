@@ -16,7 +16,8 @@ Yang bikin project ini beda? **100% kodingannya ditulis di HP Android** mengguna
 Gak butuh laptop mahal buat jadi Fullstack Developer! 😎
 
 ## 📸 Screenshots
-(https://github.com/Rzandi/CURHAT_IN/blob/master/screenshot/Curhat_In.png) 
+Ini tampilan aplikasinya di HP Android:
+![Layar utama Curhat.in](https://github.com/Rzandi/CURHAT_IN/blob/master/screenshot/Curhat_In.png) 
 
 ## Tech Stack
 
