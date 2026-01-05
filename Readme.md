@@ -16,9 +16,9 @@ Yang bikin project ini beda? **100% kodingannya ditulis di HP Android** mengguna
 Gak butuh laptop mahal buat jadi Fullstack Developer! 😎
 
 ## 📸 Screenshots
-*(Nanti lu bisa upload screenshot aplikasi lu di sini biar makin kece)*
+(https://github.com/Rzandi/CURHAT_IN/blob/master/screenshot/Curhat_In.png) 
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 Project ini dibangun pakai **MERN Stack** + **HeroUI**:
 
