@@ -20,13 +20,18 @@ export default function CurhatInput({ onPost }) {
   };
 
   return (
-    <Card className="w-full max-w-[400px] p-4 gap-4 mb-6 bg-content1 shadow-md">
+   <Card className="w-full max-w-[400px] p-4 gap-4 mb-2 border border-white/10 bg-black/20 backdrop-blur-xl shadow-2xl">
       <h3 className="font-bold text-lg text-default-700">Tulis Curhatan 📝</h3>
       
       <div className="flex gap-2">
         <Input 
-          size="sm" label="Nama (Opsional)" placeholder="Siapa ni?" 
-          value={sender} onValueChange={setSender} 
+          size="sm" 
+          placeholder="Siapa ni?" 
+          value={sender} 
+          onValueChange={setSender} 
+          classNames={{
+            input: "text-small", // Biar font inputnya pas
+          }}
         />
         <select 
           className="bg-default-100 rounded-medium px-2 text-small outline-none"

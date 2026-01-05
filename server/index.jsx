@@ -33,7 +33,24 @@ app.get('/api/curhat', async (req, res) => {
 // 2. POST: Kirim curhatan baru
 app.post('/api/curhat', async (req, res) => {
   try {
-    const newCurhat = new Curhatan(req.body);
+    const { content, sender, mood } = req.body;
+
+    // EDGE CASE 1: Mencegah input kosong atau cuma spasi
+    if (!content || content.trim().length === 0) {
+      return res.status(400).json({ error: "Curhatan gaboleh kosong bro!" });
+    }
+
+    // EDGE CASE 2: Mencegah novel (kepanjangan)
+    if (content.length > 300) {
+      return res.status(400).json({ error: "Kepanjangan! Maks 300 karakter aja." });
+    }
+
+    const newCurhat = new Curhatan({
+      sender: sender || "Anonim",
+      content: content,
+      mood: mood
+    });
+
     const saved = await newCurhat.save();
     res.status(201).json(saved);
   } catch (err) {
@@ -55,6 +72,29 @@ app.patch('/api/curhat/:id/like', async (req, res) => {
   }
 });
 
+// DELETE: Hapus curhatan (Pake PIN biar gak sembarang orang hapus)
+app.delete('/api/curhat/:id', async (req, res) => {
+  try {
+    const { pin } = req.body; // Kita minta PIN dari body request
+    const ADMIN_PIN = "12345"; // Ganti PIN sesuka hati lu (Hardcode dulu buat V2)
+
+    // EDGE CASE 3: Proteksi Admin
+    if (pin !== ADMIN_PIN) {
+      return res.status(401).json({ error: "PIN Salah! Ente bukan admin." });
+    }
+
+    const deleted = await Curhatan.findByIdAndDelete(req.params.id);
+    
+    // EDGE CASE 4: ID gak ketemu (udah dihapus duluan)
+    if (!deleted) {
+      return res.status(404).json({ error: "Curhatan udah ga ada." });
+    }
+
+    res.json({ message: "Berhasil dihapus!" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 // Jalanin Server
 app.listen(PORT, () => {
   console.log(`🚀 Server jalan di http://localhost:${PORT}`);

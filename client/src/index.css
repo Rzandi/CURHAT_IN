@@ -1,3 +1,35 @@
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  font-family: 'Quicksand', sans-serif;
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  /* Background keren ala Nebula */
+  background: radial-gradient(circle at 50% 0%, #2a1b3d 0%, #0f0c29 100%);
+  background-attachment: fixed; /* Biar bg-nya diem pas discroll */
+  color: #ededed;
+  min-height: 100vh;
+}
+
+/* Animasi biar kartu munculnya alus (Fade In Up) */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-card {
+  animation: fadeInUp 0.5s ease-out forwards;
+}
