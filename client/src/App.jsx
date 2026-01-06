@@ -1,266 +1,208 @@
 import React, { useState, useEffect } from "react";
-import { Spinner, Chip, Tabs, Tab } from "@heroui/react";
+import { BrowserRouter, Routes, Route, Navigate, Link } from "react-router-dom";
+import { Spinner, Chip, Tabs, Tab, Button, Avatar, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from "@heroui/react";
 import { toast } from "sonner";
+
+// Import Halaman & Komponen
+import Login from "./pages/Login";
+import Register from "./pages/Register";
 import CurhatCard from "./components/CurhatCard";
 import CurhatInput from "./components/CurhatInput";
 
-const API_URL = "http://localhost:3000/api/curhat";
+// Cek: Kalau lagi mode DEV (Local), pake Localhost. Kalau bukan, pake Vercel.
+const BASE_URL = import.meta.env.DEV 
+  ? "http://localhost:3000" 
+  : "https://curhat-api-zandi.vercel.app"; // Ganti link vercel backend lu yang bener
 
-const MOOD_FILTERS = [
-  { key: "all", label: "Semua", color: "default" },
-  { key: "chill", label: "😎 Chill", color: "default" },
-  { key: "happy", label: "😆 Happy", color: "warning" },
-  { key: "sad", label: "😢 Sad", color: "primary" },
-  { key: "angry", label: "😡 Angry", color: "danger" },
-  { key: "love", label: "😍 Love", color: "secondary" },
-];
-
-function App() {
+const API_URL = `${BASE_URL}/api/curhat`;
+// --- KOMPONEN HOME (DASHBOARD UTAMA) ---
+function Home({ token, user, onLogout }) {
   const [curhats, setCurhats] = useState([]);
   const [loading, setLoading] = useState(true);
-  
   const [activeFilter, setActiveFilter] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
 
-  // State Likes LocalStorage
-  const [likedPosts, setLikedPosts] = useState(() => {
-    const saved = localStorage.getItem("liked_curhats");
-    return saved ? JSON.parse(saved) : [];
-  });
+  // State Likes & Reports (LocalStorage)
+  const [likedPosts, setLikedPosts] = useState(() => JSON.parse(localStorage.getItem("liked_curhats")) || []);
+  const [reportedPosts, setReportedPosts] = useState(() => JSON.parse(localStorage.getItem("reported_curhats")) || []);
 
-  // State Reports LocalStorage
-  const [reportedPosts, setReportedPosts] = useState(() => {
-    const saved = localStorage.getItem("reported_curhats");
-    return saved ? JSON.parse(saved) : [];
-  });
+  const MOOD_FILTERS = [
+    { key: "all", label: "Semua", color: "default" },
+    { key: "chill", label: "😎 Chill", color: "default" },
+    { key: "happy", label: "😆 Happy", color: "warning" },
+    { key: "sad", label: "😢 Sad", color: "primary" },
+    { key: "angry", label: "😡 Angry", color: "danger" },
+    { key: "love", label: "😍 Love", color: "secondary" },
+  ];
 
-  useEffect(() => {
-    fetchCurhats();
-  }, []);
+  useEffect(() => { fetchCurhats(); }, []);
 
   const fetchCurhats = async () => {
     setLoading(true);
     try {
       const res = await fetch(API_URL);
-      if (!res.ok) throw new Error("Gagal ambil data");
       const data = await res.json();
       setCurhats(data);
-    } catch (err) {
-      toast.error("Gagal konek ke server!");
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { toast.error("Gagal konek server"); } 
+    finally { setLoading(false); }
   };
 
   const handlePost = async (newData) => {
     try {
       const res = await fetch(API_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newData),
+        headers: { 
+          "Content-Type": "application/json",
+          // Kirim token (kalo nanti backend butuh)
+          "Authorization": `Bearer ${token}` 
+        },
+        body: JSON.stringify({ ...newData, sender: user }), // Pake username yang login
       });
-      const result = await res.json();
-      if (!res.ok) {
-        toast.warning(result.error);
-        return;
+      if (res.ok) {
+        toast.success("Curhatan terkirim! 🎉");
+        fetchCurhats();
+      } else {
+        toast.warning("Gagal kirim");
       }
-      toast.success("Curhatan terkirim! 🎉");
-      fetchCurhats();
-      setActiveFilter("all");
-      setSortBy("newest");
-    } catch (err) {
-      toast.error("Gagal ngirim.");
-    }
+    } catch (err) { toast.error("Error ngirim"); }
   };
 
   const handleLike = async (id) => {
-    if (likedPosts.includes(id)) {
-      toast.warning("Eits, cuma boleh like sekali ya! 😜");
-      return;
-    }
-    setCurhats(prev => prev.map(item => 
-      item._id === id ? { ...item, likes: item.likes + 1 } : item
-    ));
-    const newLikedList = [...likedPosts, id];
-    setLikedPosts(newLikedList);
-    localStorage.setItem("liked_curhats", JSON.stringify(newLikedList));
-
-    try {
-      await fetch(`${API_URL}/${id}/like`, { method: "PATCH" });
-    } catch (err) {
-      fetchCurhats(); 
-    }
+    if (likedPosts.includes(id)) return toast.warning("Udah di-like bro!");
+    setCurhats(prev => prev.map(item => item._id === id ? { ...item, likes: item.likes + 1 } : item));
+    const newList = [...likedPosts, id];
+    setLikedPosts(newList);
+    localStorage.setItem("liked_curhats", JSON.stringify(newList));
+    await fetch(`${API_URL}/${id}/like`, { method: "PATCH" });
   };
 
-  const handleReport = async (id) => {
-    if (reportedPosts.includes(id)) {
-      toast.error("Lu udah laporin ini sebelumnya! 👮");
-      return;
-    }
-    if (!confirm("Yakin mau laporin konten ini sebagai toxic/spam?")) return;
-
-    setCurhats(prev => prev.filter(item => item._id !== id));
-    toast.success("Laporan diterima! Konten disembunyikan. 🚩");
-
-    const newReportedList = [...reportedPosts, id];
-    setReportedPosts(newReportedList);
-    localStorage.setItem("reported_curhats", JSON.stringify(newReportedList));
-
-    try {
-      await fetch(`${API_URL}/${id}/report`, { method: "PATCH" });
-    } catch (err) {
-      console.error("Gagal lapor");
-    }
-  };
-
-  const handleDelete = async (id) => {
-    const pin = prompt("Masukin PIN Admin buat hapus:");
-    if (!pin) return;
-    try {
-      const res = await fetch(`${API_URL}/${id}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin }),
-      });
-      const result = await res.json();
-      if (res.ok) {
-        toast.success("Dihapus oleh Admin 👮");
-        setCurhats(prev => prev.filter(item => item._id !== id));
-      } else {
-        toast.error(result.error);
-      }
-    } catch (err) {
-      toast.error("Gagal menghapus.");
-    }
-  };
-
-  // --- INI DIA FUNGSI YANG HILANG TADI! ---
   const handleComment = async (id, text, senderName) => {
     try {
       const res = await fetch(`${API_URL}/${id}/comment`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          content: text, 
-          sender: senderName || "Anonim" 
-        }),
+        body: JSON.stringify({ content: text, sender: user || senderName }), // Pake user login
       });
-
       if (res.ok) {
-        const updatedCurhat = await res.json();
-        
-        // Update State langsung biar gak perlu refresh
-        setCurhats(prev => prev.map(item => 
-          item._id === id ? updatedCurhat : item
-        ));
-        toast.success("Komentar masuk! 💬");
+        const updated = await res.json();
+        setCurhats(prev => prev.map(item => item._id === id ? updated : item));
+        toast.success("Komentar masuk!");
       }
-    } catch (err) {
-      console.error(err);
-      toast.error("Gagal kirim komentar.");
-    }
+    } catch (err) { toast.error("Gagal komen"); }
   };
-  // -----------------------------------------
 
-// Logic Filter & Sort
+  // ... (Fungsi Report & Delete sama kayak sebelumnya, copy paste aja kalau mau lengkap)
+  const handleReport = async (id) => {
+     if (reportedPosts.includes(id)) return toast.error("Udah dilaporin!");
+     if (!confirm("Laporin konten ini?")) return;
+     setCurhats(prev => prev.filter(i => i._id !== id));
+     const newList = [...reportedPosts, id];
+     setReportedPosts(newList);
+     localStorage.setItem("reported_curhats", JSON.stringify(newList));
+     await fetch(`${API_URL}/${id}/report`, { method: "PATCH" });
+  };
+  
+  const handleDelete = async (id) => {
+     const pin = prompt("PIN Admin:");
+     if (!pin) return;
+     const res = await fetch(`${API_URL}/${id}`, { 
+        method: "DELETE", headers:{"Content-Type":"application/json"}, body:JSON.stringify({pin}) 
+     });
+     if(res.ok) {
+        setCurhats(prev => prev.filter(i => i._id !== id));
+        toast.success("Dihapus Admin");
+     } else toast.error("Gagal hapus");
+  };
+
+  // Filter & Sort Logic
   const getProcessedData = () => {
     let data = [...curhats];
-
-    // 1. Filter Mood
-    if (activeFilter !== "all") {
-      data = data.filter(item => item.mood === activeFilter);
-    }
-
-    // 2. Sorting (UPDATE DI SINI)
+    if (activeFilter !== "all") data = data.filter(i => i.mood === activeFilter);
     if (sortBy === "popular") {
-      data.sort((a, b) => {
-        // Hitung skor: Likes + Jumlah Komentar
-        const scoreA = (a.likes || 0) + (a.comments?.length || 0);
-        const scoreB = (b.likes || 0) + (b.comments?.length || 0);
-        
-        // Urutkan dari skor tertinggi
-        return scoreB - scoreA;
-      });
-    } 
-    // Kalau 'newest' biarin aja, karena default dari server udah newest
-    
+       data.sort((a, b) => ((b.likes||0)+(b.comments?.length||0)) - ((a.likes||0)+(a.comments?.length||0)));
+    }
     return data;
   };
-
   const finalData = getProcessedData();
 
   return (
     <div className="min-h-screen w-full p-4 flex flex-col items-center gap-6">
-      <div className="mt-8 mb-2 text-center relative">
-        <div className="absolute -inset-1 bg-gradient-to-r from-pink-600 to-purple-600 rounded-lg blur opacity-40"></div>
-        <h1 className="relative text-5xl font-bold bg-gradient-to-r from-pink-400 via-purple-400 to-indigo-400 text-transparent bg-clip-text drop-shadow-sm">
-          Curhat.in
-        </h1>
-        <p className="text-default-400 text-sm mt-2 font-medium">Tempat sambat tanpa terlihat 👻</p>
+      {/* HEADER USER */}
+      <div className="w-full max-w-[400px] flex justify-between items-center bg-white/5 p-2 rounded-full border border-white/10 px-4 backdrop-blur-md">
+        <div className="flex items-center gap-2">
+            <Avatar size="sm" src={`https://api.dicebear.com/7.x/notionists/svg?seed=${user}`} isBordered />
+            <span className="font-bold text-sm">Hi, {user}!</span>
+        </div>
+        <Button size="sm" color="danger" variant="flat" onPress={onLogout}>Logout</Button>
+      </div>
+
+      <div className="mt-2 text-center">
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-pink-400 to-indigo-400 text-transparent bg-clip-text">Curhat.in</h1>
       </div>
 
       <CurhatInput onPost={handlePost} />
 
-      <Tabs 
-        aria-label="Sort Options" 
-        color="secondary" 
-        variant="bordered"
-        radius="full"
-        selectedKey={sortBy}
-        onSelectionChange={setSortBy}
-        className="mb-2"
-      >
+      <Tabs aria-label="Sort" color="secondary" radius="full" selectedKey={sortBy} onSelectionChange={setSortBy} className="mb-2">
         <Tab key="newest" title="🔥 Terbaru" />
         <Tab key="popular" title="❤️ Terpopuler" />
       </Tabs>
 
       <div className="flex gap-2 flex-wrap justify-center max-w-[400px]">
         {MOOD_FILTERS.map((f) => (
-          <Chip
-            key={f.key}
-            variant={activeFilter === f.key ? "solid" : "bordered"}
-            color={activeFilter === f.key ? f.color : "default"}
-            className="cursor-pointer transition-transform active:scale-95 border-white/20"
-            onClick={() => setActiveFilter(f.key)}
-          >
+          <Chip key={f.key} variant={activeFilter===f.key?"solid":"bordered"} color={activeFilter===f.key?f.color:"default"} onClick={()=>setActiveFilter(f.key)} className="cursor-pointer border-white/20">
             {f.label}
           </Chip>
         ))}
       </div>
 
       <div className="w-full flex flex-col items-center gap-4 pb-20">
-        {loading ? (
-          <Spinner size="lg" color="secondary" />
-        ) : finalData.length === 0 ? (
-          <div className="text-center mt-10 opacity-60 p-8 border border-dashed border-default-300/30 rounded-2xl">
-            <p className="text-5xl mb-2">
-              {activeFilter === "all" ? "🌑" : "🔍"}
-            </p>
-            <p className="text-lg font-semibold">
-              {activeFilter === "all" ? "Masih sepi nih..." : `Gak ada yang lagi ${activeFilter}`}
-            </p>
-            <p className="text-sm">Yuk ramaikan!</p>
-          </div>
-        ) : (
-          finalData.map((item, index) => (
-            <div 
-              key={`${item._id}-${sortBy}`} 
-              style={{ animationDelay: `${index * 0.1}s` }} 
-              className="animate-card w-full flex justify-center"
-            >
+        {loading ? <Spinner color="secondary" /> : finalData.map((item, idx) => (
+            <div key={`${item._id}-${sortBy}`} style={{animationDelay:`${idx*0.1}s`}} className="animate-card w-full flex justify-center">
                <CurhatCard 
-                  {...item} 
-                  isLiked={likedPosts.includes(item._id)} 
-                  onLike={() => handleLike(item._id)}
-                  onDelete={() => handleDelete(item._id)}
-                  onReport={() => handleReport(item._id)}
-                  onComment={handleComment} // <-- Nah ini dia biang keroknya tadi
-                />
+                 {...item} 
+                 isLiked={likedPosts.includes(item._id)}
+                 onLike={()=>handleLike(item._id)}
+                 onReport={()=>handleReport(item._id)}
+                 onDelete={()=>handleDelete(item._id)}
+                 onComment={handleComment}
+               />
             </div>
-          ))
-        )}
+        ))}
       </div>
     </div>
+  );
+}
+
+// --- APP UTAMA (ROUTING) ---
+function App() {
+  const [token, setToken] = useState(localStorage.getItem("token"));
+  const [user, setUser] = useState(localStorage.getItem("username"));
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("username");
+    setToken(null);
+    setUser(null);
+    toast.info("Dadah! 👋");
+  };
+
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route 
+          path="/" 
+          element={token ? <Home token={token} user={user} onLogout={handleLogout} /> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/login" 
+          element={!token ? <Login setToken={setToken} setUser={setUser} /> : <Navigate to="/" />} 
+        />
+        <Route 
+          path="/register" 
+          element={!token ? <Register /> : <Navigate to="/" />} 
+        />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
